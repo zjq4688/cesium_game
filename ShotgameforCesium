@@ -1,0 +1,472 @@
+import * as Cesium from 'cesium/Cesium'
+
+/**
+ * 模型初始化
+ * @param {*} tileset 模型
+ * @param {*} lon WGS84坐标
+ * @param {*} lat 
+ * @param {*} hei 
+ */
+export function Tileset_Init(tileset, lon, lat, hei) {
+    tileset.readyPromise.then(function () {
+        let hpr = new Cesium.Matrix3()
+        let hprObj = new Cesium.HeadingPitchRoll(Math.PI, Math.PI, Math.PI)
+        hpr = Cesium.Matrix3.fromHeadingPitchRoll(hprObj, hpr)
+        let modelMatrix = Cesium.Matrix4.multiplyByTranslation(
+            Cesium.Transforms.eastNorthUpToFixedFrame(Cesium.Cartesian3.fromDegrees(lon, lat, hei)), new Cesium.Cartesian3(), new Cesium.Matrix4()
+        )
+        Cesium.Matrix4.multiplyByMatrix3(modelMatrix, hpr, modelMatrix)
+        //Cesium.Matrix4.multiplyByMatrix3(modelMatrix, Cesium.Matrix3.fromRotationZ(Cesium.Math.toRadians(50)), modelMatrix)
+        tileset._root.transform = modelMatrix
+    });
+}
+/**
+ * 东北天转地心笛卡尔
+ * @param {Cesium.Cartesian3} point 
+ * @returns {Cesium.Cartesian3}
+ */
+export function ENU_ECEF(point) {
+    var transform = Cesium.Transforms.eastNorthUpToFixedFrame(Cesium.Cartesian3.fromDegrees(119.7426, 29.1167, 30));
+    var local = Cesium.Matrix4.multiplyByPoint(transform, point, new Cesium.Cartesian3());
+    return local;
+}
+/**
+ * 地心笛卡尔转东北天
+ * @param {Cesium.Cartesian3} point 
+ * @returns {Cesium.Cartesian3}
+ */
+export function ECEF_ENU(point) {
+    var transform = Cesium.Transforms.eastNorthUpToFixedFrame(Cesium.Cartesian3.fromDegrees(119.7426, 29.1167, 30));
+    var inv = Cesium.Matrix4.inverseTransformation(transform, new Cesium.Matrix4());
+    var local = Cesium.Matrix4.multiplyByPoint(inv, point, new Cesium.Cartesian3());
+    return local;
+}
+
+/**
+ * 显示XYZ轴 XX红色 YY绿 ZZ蓝
+ * @param {Cesium.Cartesian3} center 中心坐标
+ */
+export function Show_XYZ(center) {
+    // var center = new Cesium.Cartesian3.fromDegrees(120.369750, 30.328600, 6.2);
+
+    var vec_endxx = new Cesium.Cartesian3(center.x + 100, center.y, center.z);
+    var vec_endyy = new Cesium.Cartesian3(center.x, center.y + 100, center.z);
+    var vec_endzz = new Cesium.Cartesian3(center.x, center.y, center.z + 100);
+
+    viewer.entities.add({
+        name: "xx",
+        polyline: {
+            positions: [center, vec_endxx],
+            width: 10,
+            material: new Cesium.PolylineGlowMaterialProperty({
+                glowPower: 0.1,
+                color: Cesium.Color.RED,
+            })
+        },
+    });
+    viewer.entities.add({
+        name: "yy",
+        polyline: {
+            positions: [center, vec_endyy],
+            width: 10,
+            material: new Cesium.PolylineGlowMaterialProperty({
+                glowPower: 0.1,
+                color: Cesium.Color.GREEN,
+            })
+        },
+    });
+    viewer.entities.add({
+        name: "zz",
+        polyline: {
+            positions: [center, vec_endzz],
+            width: 10,
+            material: new Cesium.PolylineGlowMaterialProperty({
+                glowPower: 0.1,
+                color: Cesium.Color.BLUE,
+            })
+        },
+    });
+}
+/**
+ * 显示XYZ轴 XX红色 YY绿 ZZ蓝
+ * @param {Cesium.Cartesian3} center 
+ */
+export function Show_XYZ_ENU(center) {
+    // var center = new Cesium.Cartesian3.fromDegrees(120.369750, 30.328600, 6.2);
+    var center_ENU = ECEF_ENU(center);
+
+    var vec_endxxENU = new Cesium.Cartesian3(center_ENU.x + 100, center_ENU.y, center_ENU.z);
+    var vec_endyyENU = new Cesium.Cartesian3(center_ENU.x, center_ENU.y + 100, center_ENU.z);
+    var vec_endzzENU = new Cesium.Cartesian3(center_ENU.x, center_ENU.y, center_ENU.z + 100);
+
+    var vec_endxxECEF = ENU_ECEF(vec_endxxENU);
+    var vec_endyyECEF = ENU_ECEF(vec_endyyENU);
+    var vec_endzzECEF = ENU_ECEF(vec_endzzENU);
+
+    viewer.entities.add({
+        name: "xx_enu",
+        polyline: {
+            positions: [center, vec_endxxECEF],
+            width: 20,
+            material: new Cesium.PolylineGlowMaterialProperty({
+                glowPower: 0.1,
+                color: Cesium.Color.RED,
+            })
+        },
+    });
+    viewer.entities.add({
+        name: "yy_enu",
+        polyline: {
+            positions: [center, vec_endyyECEF],
+            width: 20,
+            material: new Cesium.PolylineGlowMaterialProperty({
+                glowPower: 0.1,
+                color: Cesium.Color.GREEN,
+            })
+        },
+    });
+    viewer.entities.add({
+        name: "zz_enu",
+        polyline: {
+            positions: [center, vec_endzzECEF],
+            width: 20,
+            material: new Cesium.PolylineGlowMaterialProperty({
+                glowPower: 0.1,
+                color: Cesium.Color.BLUE,
+            })
+        },
+    });
+}
+
+/**
+ * 绘制格网
+ * @param {*} viewer 视图
+ * @param {*} viewWid  宽
+ * @param {*} viewHit  高度
+ * @param {*} stepGrid  步长
+ */
+export function drawGrid(viewer, viewWid, viewHit, stepGrid) {
+
+    //竖线
+    for (let i = -viewWid; i <= viewWid; i += stepGrid) {
+        viewer.entities.add({
+            id: 'gridrow' + i,
+            polyline: {
+                positions: [ENU_ECEF(new Cesium.Cartesian3(i, viewHit, 0)), ENU_ECEF(new Cesium.Cartesian3(i, -viewHit, 0))],
+                width: 2,
+                arcType: Cesium.ArcType.RHUMB,
+                material: Cesium.Color.BLUE.withAlpha(0.2),
+                //granularity: 0.001,
+                //clampToGround: true,
+            },
+        });
+    }
+
+    //横线
+    for (let i = -viewHit; i <= viewHit; i += stepGrid) {
+        viewer.entities.add({
+            id: 'gridcol' + i,
+            polyline: {
+                positions: [ENU_ECEF(new Cesium.Cartesian3(viewWid, i, 0)), ENU_ECEF(new Cesium.Cartesian3(-viewWid, i, 0))],
+                width: 2,
+                arcType: Cesium.ArcType.RHUMB,
+                material: Cesium.Color.BLUE.withAlpha(0.2),
+                //granularity: 0.001,
+                //clampToGround: true,
+            },
+        });
+    }
+}
+/**
+ * 创建子弹
+ * @param {*} viewer 
+ * @param {*} time 
+ * @param {*} id 
+ * @param {*} bulletmap 
+ * @param {*} bullettime 
+ */
+export function createBullet(viewer, time, id, bulletmap, bullettime) {
+    //子弹创建时间记录
+    bullettime.set(id, time)
+    viewer.entities.add({
+        id: "bullet" + id,
+        position: new Cesium.CallbackProperty(() => ENU_ECEF(bulletmap.get(id)), false),
+        point: {
+            color: Cesium.Color.RED.withAlpha(0.5),
+            pixelSize: 10,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        }
+    });
+}
+
+/**
+ * 碰撞检测
+ * @param {*} viewer 
+ * @param {*} bulletmap 
+ * @param {*} bullettime 
+ */
+export function collide(bulletmap, enemymap, lifemap) {
+
+    //子弹与障碍碰撞
+    enemymap.forEach((item, i) => {
+        bulletmap.forEach((item2, j) => {
+            //子弹碰撞，消失，血量更新
+            if ((item2.x + 0.5 >= item.x - 5) && (item2.x - 0.5 <= item.x + 5) && (item2.y >= item.y - 5) && (item2.z == 0)) {
+                //碰撞了，子弹消失,血条降低
+                item2.z = 1000;
+                hpmap.set(i, hpmap.get(i) - 20);
+                //血量为0，障碍消失
+                if (hpmap.get(i) <= 0) {
+                    
+                    item.z = 1000;
+                    // enemymap.delete(i);
+                }
+            }
+
+        });
+
+    });
+    //人物与障碍碰撞
+    enemymap.forEach((item, i) => {
+    });
+
+    //人物与武器碰撞
+    enemymap.forEach((item, i) => {
+    });
+    // return hpmap;
+}
+/**
+ * 删除子弹，此功能暂时无法上线，只能用抬高坐标方式代替
+ * @param {*} viewer 
+ * @param {*} bulletmap 
+ * @param {*} bullettime 
+ * @param {*} HP 
+ */
+export function removeBullet(viewer, bulletmap, bullettime, HP) {
+
+    bulletmap.forEach((item, index) => {
+        if (1000 == item.z) {
+            viewer.entities.removeById("bullet" + index);
+            bulletmap.delete(index);
+            bullettime.delete(index);
+            HP -= 20;
+            console.log("当前血量", HP)
+        }
+    });
+}
+
+
+/**
+ * 初始化，主函数
+ * @param {*} viewer 
+ */
+export function initEnemy(viewer) {
+
+    //绘制人物
+    viewer.entities.add({
+        name: "zhujiao",
+        position: new Cesium.CallbackProperty(function (time) {
+
+            if (Cesium.JulianDate.lessThan(time, endtime)) {
+                //运动秒数
+                runtime = Cesium.JulianDate.secondsDifference(time, starttime);
+                //更新人物竖直方向位置
+                shootpos_enu.y = runtime * speed;
+
+                //每频率秒创建一次
+                if (Cesium.JulianDate.lessThan(nexttime, time)) {
+
+                    //记录子弹生成位置
+                    bulletmap.set(bulletid, new Cesium.Cartesian3(shootpos_enu.x, shootpos_enu.y, shootpos_enu.z));
+
+                    //创建子弹，创建时间，子弹id
+                    createBullet(viewer, runtime, bulletid, bulletmap, bullettime)
+
+                    //计算下一次子弹生成时间
+                    Cesium.JulianDate.addSeconds(time, frequency, nexttime);
+
+                    //子弹编号++
+                    bulletid++;
+
+                }
+
+                // 子弹位置更新
+                bulletmap.forEach((item, index) => {
+                    //子弹位置位置应为  子弹运行路程+人物运行路程（子弹初始位置）
+                    item.y = (runtime - bullettime.get(index)) * bullspeed + bullettime.get(index) * speed;
+                });
+
+                //碰撞监测
+                collide(bulletmap, enemymap, hpmap);
+
+                //返回主角坐标
+                return ENU_ECEF(shootpos_enu);
+            }
+        }, false),
+        point: {
+            color: Cesium.Color.GREEN.withAlpha(0.5),
+            pixelSize: 10,
+            // outlineColor:Cesium.Color.GREEN,
+            // outlineWidth:3,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        }
+    });
+
+    //绘制血量标签
+    hpmap.forEach((item, index) => {
+        viewer.entities.add({
+            name: 'boss' + index,
+            position: new Cesium.CallbackProperty(() => ENU_ECEF(new Cesium.Cartesian3(enemymap.get(index).x, enemymap.get(index).y, enemymap.get(index).z + 20)), false),
+
+            label: {
+                //文字标签
+                text: new Cesium.CallbackProperty(() => {
+                    return "" + hpmap.get(index)
+                }, false),
+                font: '20px sans-serif',
+                style: Cesium.LabelStyle.FILL,
+                // 对齐方式(水平和竖直)
+                horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
+                verticalOrigin: Cesium.VerticalOrigin.CENTER,
+                pixelOffset: new Cesium.Cartesian2(0, 0),
+                showBackground: true,
+                backgroundColor: new Cesium.Color.fromBytes(0, 70, 24),
+            },
+        });
+    })
+
+
+    //绘制敌人
+    enemymap.forEach((item, index) => {
+        viewer.entities.add({
+            id: 'enemy' + index,
+            position: new Cesium.CallbackProperty(() => ENU_ECEF(item), false), //立方体的位置
+            box: {
+                dimensions: new Cesium.Cartesian3(10, 10, 10), //长宽高
+                fill: true, //是否显示填充
+                //material: Cesium.Color.fromCssColorString(`rgba(255,0,0,1)`), //立方体的颜色,
+                material: Cesium.Color.YELLOW, //立方体的颜色,
+                outline: false, //是否显示轮廓
+                outlineColor: Cesium.Color.fromCssColorString(`rgba(255,255,0,1)`), //立方体轮廓线的颜色,
+                outlineWidth: 1, //轮廓的跨度
+            },
+        });
+    });
+
+    let d3kit = new Cesium.D3Kit(viewer);
+
+    var handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+
+    //鼠标移动
+    handler.setInputAction(function (event) {
+
+        // 屏幕坐标转为世界坐标
+        var cartesian = d3kit.getCatesian3FromPX(event.endPosition);
+
+        if (ECEF_ENU(cartesian).x >= -40 && ECEF_ENU(cartesian).x <= 40) {
+            shootpos_enu.x = ECEF_ENU(cartesian).x;
+        }
+
+    }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+}
+
+var enemymap = new Map();
+var hpmap = new Map();
+enemymap.set(0, new Cesium.Cartesian3(10, 70, 0));
+hpmap.set(0, 1000);
+enemymap.set(1, new Cesium.Cartesian3(-30, 140, 0));
+hpmap.set(1, 300);
+
+var starttime = new Cesium.JulianDate.now();
+var endtime = new Cesium.JulianDate.now();
+var shootpos = new Cesium.Cartesian3();
+var speed = 2.5, bullspeed = 30.0;
+shootpos = ENU_ECEF(new Cesium.Cartesian3(0, 0, 0));
+var frequency = 0.3;
+//子弹发射计时器，到达这个时间发射
+var nexttime = new Cesium.JulianDate.now();
+Cesium.JulianDate.addSeconds(starttime, frequency, nexttime);
+var runtime = 0.0;
+var bulletid = 0;
+
+var bulletmap = new Map();
+var bullettime = new Map();
+
+var shootpos_enu = new Cesium.Cartesian3();
+//运行时间，游戏时间
+Cesium.JulianDate.addSeconds(starttime, 100.0 / speed, endtime);
+console.log(100.0 / speed)
+# cesium-game
+
+#### Description
+cesium开发小游戏
+
+#### Software Architecture
+Software architecture description
+
+#### Installation
+
+1.  xxxx
+2.  xxxx
+3.  xxxx
+
+#### Instructions
+
+1.  xxxx
+2.  xxxx
+3.  xxxx
+
+#### Contribution
+
+1.  Fork the repository
+2.  Create Feat_xxx branch
+3.  Commit your code
+4.  Create Pull Request
+
+
+#### Gitee Feature
+
+1.  You can use Readme\_XXX.md to support different languages, such as Readme\_en.md, Readme\_zh.md
+2.  Gitee blog [blog.gitee.com](https://blog.gitee.com)
+3.  Explore open source project [https://gitee.com/explore](https://gitee.com/explore)
+4.  The most valuable open source project [GVP](https://gitee.com/gvp)
+5.  The manual of Gitee [https://gitee.com/help](https://gitee.com/help)
+6.  The most popular members  [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+
+# cesium-game
+
+#### 介绍
+cesium开发小游戏
+
+#### 软件架构
+软件架构说明
+
+
+#### 安装教程
+
+1.  xxxx
+2.  xxxx
+3.  xxxx
+
+#### 使用说明
+
+1.  xxxx
+2.  xxxx
+3.  xxxx
+
+#### 参与贡献
+
+1.  Fork 本仓库
+2.  新建 Feat_xxx 分支
+3.  提交代码
+4.  新建 Pull Request
+
+
+#### 特技
+
+1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
+2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
+3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
+4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
+5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
+6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
